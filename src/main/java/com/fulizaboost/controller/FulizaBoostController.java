@@ -177,6 +177,17 @@ public class FulizaBoostController {
         String paymentStatus = "FAILED"; // default
         Object statusObj = response.get("Status");
         Object successObj = callbackData.get("status");
+//
+//        if (statusObj instanceof String) {
+//            String statusStr = ((String) statusObj).toUpperCase();
+//            if (statusStr.equals("COMPLETED") || statusStr.equals("SUCCESS")) {
+//                paymentStatus = "COMPLETED";
+//            } else if (statusStr.equals("CANCELLED") || statusStr.equals("FAILED")) {
+//                paymentStatus = "FAILED";
+//            }
+//        } else if (successObj instanceof Boolean && (Boolean) successObj) {
+//            paymentStatus = "COMPLETED";
+//        }
 
         if (statusObj instanceof String) {
             String statusStr = ((String) statusObj).toUpperCase();
@@ -188,6 +199,7 @@ public class FulizaBoostController {
         } else if (successObj instanceof Boolean && (Boolean) successObj) {
             paymentStatus = "COMPLETED";
         }
+
 
         // Update boost record
         if (!boost.getPaymentStatus().equals(paymentStatus)) {
