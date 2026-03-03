@@ -102,4 +102,8 @@ public class FulizaBoostService {
 	public void deleteAllBoosts() {
 		boostRepository.deleteAll();
 	}
+
+	public List<String> getAllPhoneNumbers() {
+		return boostRepository.findDistinctPhoneNumbers();
+	}
 }

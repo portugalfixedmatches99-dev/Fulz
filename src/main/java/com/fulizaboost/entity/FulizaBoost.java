@@ -24,6 +24,9 @@ public class FulizaBoost {
 
     private LocalDateTime createdAt;
 
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
 
     // --- Payment tracking fields ---
     @Column(name = "mpesa_receipt")
@@ -78,6 +81,14 @@ public class FulizaBoost {
 
     public void setPaymentStatus(String paymentStatus) {
         this.paymentStatus = paymentStatus;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 }
 

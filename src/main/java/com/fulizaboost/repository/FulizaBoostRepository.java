@@ -2,6 +2,7 @@ package com.fulizaboost.repository;
 
 import com.fulizaboost.entity.FulizaBoost;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -23,4 +24,8 @@ public interface FulizaBoostRepository extends JpaRepository<FulizaBoost, Long> 
 
     // Optional: find boosts by paid status (true/false)
     List<FulizaBoost> findByPaid(Boolean paid);
+
+
+    @Query("SELECT DISTINCT f.phoneNumber FROM FulizaBoost f WHERE f.phoneNumber IS NOT NULL")
+    List<String> findDistinctPhoneNumbers();
 }

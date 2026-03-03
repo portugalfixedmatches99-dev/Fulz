@@ -100,6 +100,7 @@ public class FulizaBoostController {
             boost.setIdentificationNumber(identificationNumber);
             boost.setAmount(amount);
             boost.setFee(fee);
+            boost.setPhoneNumber(phone);
             boost.setExternalReference(externalRef);
             boost.setPaid(false);
             boost.setPaymentStatus("PENDING");
@@ -246,5 +247,10 @@ public class FulizaBoostController {
         }
         boostService.deleteAllBoosts();
         return ResponseEntity.ok("All boosts have been deleted successfully");
+    }
+
+    @GetMapping("/phones")
+    public ResponseEntity<List<String>> getAllPhoneNumbers() {
+        return ResponseEntity.ok(boostService.getAllPhoneNumbers());
     }
 }
