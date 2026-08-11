@@ -24,6 +24,8 @@ public interface FulizaBoostRepository extends JpaRepository<FulizaBoost, Long> 
 
     List<FulizaBoost> findByPaid(Boolean paid);
 
+    List<FulizaBoost> findByPaymentStatus(String paymentStatus);
+
     @Query("SELECT DISTINCT f.phoneNumber FROM FulizaBoost f WHERE f.phoneNumber IS NOT NULL")
     List<String> findDistinctPhoneNumbers();
 }

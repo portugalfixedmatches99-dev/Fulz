@@ -50,6 +50,11 @@ public class FulizaBoostController {
         return ResponseEntity.ok("Boost deleted successfully");
     }
 
+    @GetMapping("/status/{status}")
+    public ResponseEntity<List<FulizaBoost>> getBoostsByStatus(@PathVariable String status) {
+        return ResponseEntity.ok(boostService.getBoostsByStatus(status.toUpperCase()));
+    }
+
     // ------------------ PAYMENT (M-Pesa STK Push) ------------------
 
     @PostMapping("/pay")

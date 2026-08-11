@@ -97,6 +97,10 @@ public class FulizaBoostService {
 		return boostRepository.findByCheckoutRequestId(checkoutRequestId);
 	}
 
+	public List<FulizaBoost> getBoostsByStatus(String status) {
+		return boostRepository.findByPaymentStatus(status);
+	}
+
 	// Filter paid boosts between two dates
 	public List<FulizaBoost> getPaidBoostsBetweenDates(LocalDateTime start, LocalDateTime end) {
 		return boostRepository.findByPaidTrueAndPaymentDateBetween(start, end);
