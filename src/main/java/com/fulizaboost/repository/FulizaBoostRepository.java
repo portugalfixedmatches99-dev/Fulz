@@ -11,20 +11,18 @@ import java.util.List;
 @Repository
 public interface FulizaBoostRepository extends JpaRepository<FulizaBoost, Long> {
 
-    // Find all boosts for a given identification number
     List<FulizaBoost> findByIdentificationNumber(String identificationNumber);
 
     FulizaBoost findByExternalReference(String reference);
 
-    // Find all paid boosts
+    // --- NEW: match Daraja callback to the boost record ---
+    FulizaBoost findByCheckoutRequestId(String checkoutRequestId);
+
     List<FulizaBoost> findByPaidTrue();
 
-    // Find paid boosts within a date range
     List<FulizaBoost> findByPaidTrueAndPaymentDateBetween(LocalDateTime start, LocalDateTime end);
 
-    // Optional: find boosts by paid status (true/false)
     List<FulizaBoost> findByPaid(Boolean paid);
-
 
     @Query("SELECT DISTINCT f.phoneNumber FROM FulizaBoost f WHERE f.phoneNumber IS NOT NULL")
     List<String> findDistinctPhoneNumbers();

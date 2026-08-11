@@ -1,12 +1,11 @@
 package com.fulizaboost.controller;
 
-import com.fulizaboost.EnvConfig;
 import com.fulizaboost.entity.FulizaBoost;
 import com.fulizaboost.service.FulizaBoostService;
+import com.fulizaboost.service.MpesaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,19 +20,7 @@ public class FulizaBoostController {
     private FulizaBoostService boostService;
 
     @Autowired
-    private RestTemplate restTemplate;
-
-    // PayHero settings from .env
-    private final String PAYHERO_API = "https://backend.payhero.co.ke/api/v2/payments";
-    private final String payHeroUsername = EnvConfig.dotenv.get("PAYHERO_API_USERNAME");
-    private final String payHeroPassword = EnvConfig.dotenv.get("PAYHERO_API_PASSWORD");
-    private final String payHeroChannelId = EnvConfig.dotenv.get("PAYHERO_CHANNEL_ID");
-    private final String callbackUrl = EnvConfig.dotenv.get("PAYHERO_CALLBACK_URL");
-
-    private String getPayHeroBasicAuth() {
-        String credentials = payHeroUsername + ":" + payHeroPassword;
-        return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes());
-    }
+    private MpesaService mpesaService;
 
     // ------------------ BOOST ENDPOINTS ------------------
 
@@ -63,7 +50,7 @@ public class FulizaBoostController {
         return ResponseEntity.ok("Boost deleted successfully");
     }
 
-    // ------------------ PAYMENT ------------------
+    // ------------------ PAYMENT (M-Pesa STK Push) ------------------
 
     @PostMapping("/pay")
     public ResponseEntity<Map<String, Object>> payBoostFee(@RequestBody Map<String, Object> payload) {
@@ -92,9 +79,8 @@ public class FulizaBoostController {
             Double amount = ((Number) payload.get("amount")).doubleValue();
             Double fee = ((Number) payload.get("fee")).doubleValue();
             String identificationNumber = (String) payload.get("identificationNumber");
-            String customerName = (String) payload.getOrDefault("customer_name", "Customer");
 
-            String externalRef = "BOOST-" + UUID.randomUUID();
+            String externalRef = "BOOST-" + UUID.randomUUID().toString().substring(0, 8);
 
             FulizaBoost boost = new FulizaBoost();
             boost.setIdentificationNumber(identificationNumber);
@@ -106,31 +92,21 @@ public class FulizaBoostController {
             boost.setPaymentStatus("PENDING");
             boostService.saveBoost(boost);
 
-            Map<String, Object> payHeroPayload = new HashMap<>();
-            payHeroPayload.put("amount", fee.intValue());
-            payHeroPayload.put("phone_number", phone);
-            payHeroPayload.put("channel_id", Integer.parseInt(payHeroChannelId));
-            payHeroPayload.put("provider", "m-pesa");
-            payHeroPayload.put("external_reference", externalRef);
-            payHeroPayload.put("customer_name", customerName);
-            payHeroPayload.put("callback_url", callbackUrl);
+            Map<String, Object> mpesaResponse = mpesaService.initiateStkPush(
+                    phone, fee.intValue(), externalRef, "FulizaBoost Fee"
+            );
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", getPayHeroBasicAuth());
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payHeroPayload, headers);
-
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(PAYHERO_API, request, String.class);
-
-            String responseBody = response.getBody();
+            // Capture CheckoutRequestID so we can match the async callback later
+            Object checkoutRequestId = mpesaResponse.get("CheckoutRequestID");
+            if (checkoutRequestId != null) {
+                boost.setCheckoutRequestId((String) checkoutRequestId);
+                boostService.saveBoost(boost);
+            }
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Payment initiated. Client saved with PENDING status.",
-                    "data", responseBody != null ? responseBody : "NULL",
+                    "message", "STK push sent. Client saved with PENDING status.",
+                    "data", mpesaResponse,
                     "reference", externalRef,
                     "boostId", boost.getId()
             ));
@@ -141,62 +117,58 @@ public class FulizaBoostController {
         }
     }
 
-    // ------------------ CALLBACK ------------------
+    // ------------------ CALLBACK (M-Pesa Daraja) ------------------
 
     @PostMapping("/pay/callback")
-    public ResponseEntity<String> handlePayHeroCallback(@RequestBody Map<String, Object> callbackData) {
+    public ResponseEntity<Map<String, Object>> handleMpesaCallback(@RequestBody Map<String, Object> callbackData) {
+        try {
+            Map<String, Object> body = (Map<String, Object>) callbackData.get("Body");
+            Map<String, Object> stkCallback = (Map<String, Object>) body.get("stkCallback");
 
-        Object responseObj = callbackData.get("response");
+            String checkoutRequestId = (String) stkCallback.get("CheckoutRequestID");
+            int resultCode = (Integer) stkCallback.get("ResultCode");
 
-        if (!(responseObj instanceof Map)) {
-            return ResponseEntity.ok("Invalid response format");
-        }
-
-        Map<String, Object> response = (Map<String, Object>) responseObj;
-
-        String reference = (String) response.getOrDefault(
-                "ExternalReference",
-                response.get("User_Reference")
-        );
-
-        if (reference == null) {
-            return ResponseEntity.ok("Missing reference");
-        }
-
-        FulizaBoost boost = boostService.getBoostByReference(reference);
-        if (boost == null) {
-            return ResponseEntity.ok("Boost not found");
-        }
-
-        String paymentStatus = "FAILED";
-
-        Object statusObj = response.get("Status");
-        Object successObj = callbackData.get("status");
-
-        if (statusObj instanceof String statusStr) {
-            statusStr = statusStr.toUpperCase();
-            if (statusStr.equals("COMPLETED") || statusStr.equals("SUCCESS")) {
-                paymentStatus = "COMPLETED";
-            } else if (statusStr.equals("CANCELLED")) {
-                paymentStatus = "CANCELLED";
+            if (checkoutRequestId == null) {
+                return ResponseEntity.ok(Map.of("ResultCode", 0, "ResultDesc", "Missing CheckoutRequestID"));
             }
-        } else if (successObj instanceof Boolean success && success) {
-            paymentStatus = "COMPLETED";
-        }
 
-        if (!Objects.equals(boost.getPaymentStatus(), paymentStatus)) {
-            boost.setPaymentStatus(paymentStatus);
-            boost.setPaid("COMPLETED".equals(paymentStatus));
+            FulizaBoost boost = boostService.getBoostByCheckoutRequestId(checkoutRequestId);
+            if (boost == null) {
+                return ResponseEntity.ok(Map.of("ResultCode", 0, "ResultDesc", "Boost not found"));
+            }
 
-            if ("COMPLETED".equals(paymentStatus)) {
+            if (resultCode == 0) {
+                // Payment succeeded - extract receipt from CallbackMetadata
+                Map<String, Object> metadata = (Map<String, Object>) stkCallback.get("CallbackMetadata");
+                List<Map<String, Object>> items = (List<Map<String, Object>>) metadata.get("Item");
+
+                String mpesaReceipt = null;
+                for (Map<String, Object> item : items) {
+                    if ("MpesaReceiptNumber".equals(item.get("Name"))) {
+                        mpesaReceipt = String.valueOf(item.get("Value"));
+                    }
+                }
+
+                boost.setPaymentStatus("COMPLETED");
+                boost.setPaid(true);
                 boost.setPaymentDate(LocalDateTime.now());
-                boost.setMpesaReceipt((String) response.get("MpesaReceiptNumber"));
+                boost.setMpesaReceipt(mpesaReceipt);
+            } else if (resultCode == 1032) {
+                // User cancelled the STK prompt
+                boost.setPaymentStatus("CANCELLED");
+                boost.setPaid(false);
+            } else {
+                boost.setPaymentStatus("FAILED");
+                boost.setPaid(false);
             }
 
             boostService.saveBoost(boost);
-        }
 
-        return ResponseEntity.ok("Callback processed");
+            return ResponseEntity.ok(Map.of("ResultCode", 0, "ResultDesc", "Accepted"));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("ResultCode", 1, "ResultDesc", "Error: " + e.getMessage()));
+        }
     }
 
     // ------------------ REPORTING ------------------

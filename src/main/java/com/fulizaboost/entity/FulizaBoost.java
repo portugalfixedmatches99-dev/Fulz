@@ -2,7 +2,6 @@ package com.fulizaboost.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Entity
 @Table(name = "fuliza_boost")
@@ -11,14 +10,12 @@ public class FulizaBoost {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String identificationNumber; // new field for ID
+    private String identificationNumber;
     private Double amount;
     private Double fee;
-    // --- Add these fields ---
     private Boolean paid = false;
 
     private LocalDateTime paymentDate;
-
 
     private String externalReference;
 
@@ -27,21 +24,21 @@ public class FulizaBoost {
     @Column(name = "phone_number")
     private String phoneNumber;
 
-
-    // --- Payment tracking fields ---
     @Column(name = "mpesa_receipt")
     private String mpesaReceipt;
 
     @Column(name = "payment_status")
     private String paymentStatus; // PENDING, COMPLETED, FAILED, CANCELLED
 
-    // Constructor
+    // --- NEW: needed to match Daraja STK callbacks back to this record ---
+    @Column(name = "checkout_request_id")
+    private String checkoutRequestId;
+
     public FulizaBoost() {
         this.createdAt = LocalDateTime.now();
         this.paid = false;
-        this.paymentStatus = "PENDING";// auto set creation date
+        this.paymentStatus = "PENDING";
     }
-
 
     // Getters & Setters
     public Long getId() { return id; }
@@ -67,28 +64,16 @@ public class FulizaBoost {
     public String getExternalReference() { return externalReference; }
     public void setExternalReference(String externalReference) { this.externalReference = externalReference; }
 
-    public String getMpesaReceipt() {
-        return mpesaReceipt;
-    }
+    public String getMpesaReceipt() { return mpesaReceipt; }
+    public void setMpesaReceipt(String mpesaReceipt) { this.mpesaReceipt = mpesaReceipt; }
 
-    public void setMpesaReceipt(String mpesaReceipt) {
-        this.mpesaReceipt = mpesaReceipt;
-    }
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
 
-    public String getPaymentStatus() {
-        return paymentStatus;
-    }
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
-    public void setPaymentStatus(String paymentStatus) {
-        this.paymentStatus = paymentStatus;
-    }
-
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
-
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
-    }
+    // --- NEW ---
+    public String getCheckoutRequestId() { return checkoutRequestId; }
+    public void setCheckoutRequestId(String checkoutRequestId) { this.checkoutRequestId = checkoutRequestId; }
 }
-

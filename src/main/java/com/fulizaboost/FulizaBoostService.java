@@ -93,6 +93,9 @@ public class FulizaBoostService {
 		LocalDateTime end = LocalDateTime.parse(date + "T23:59:59");
 		return boostRepository.findByPaidTrueAndPaymentDateBetween(start, end).size();
 	}
+	public FulizaBoost getBoostByCheckoutRequestId(String checkoutRequestId) {
+		return boostRepository.findByCheckoutRequestId(checkoutRequestId);
+	}
 
 	// Filter paid boosts between two dates
 	public List<FulizaBoost> getPaidBoostsBetweenDates(LocalDateTime start, LocalDateTime end) {
@@ -107,3 +110,5 @@ public class FulizaBoostService {
 		return boostRepository.findDistinctPhoneNumbers();
 	}
 }
+
+
